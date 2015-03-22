@@ -1,9 +1,4 @@
----
-title: 'Analysis of the Health and Economic Consequences of the Severe Weather Events'
-output: 
-  html_document:
-    keep_md: true
----
+# Analysis of the Health and Economic Consequences of the Severe Weather Events
 
 ##Synopsis
 
@@ -18,7 +13,8 @@ In order to answer these questions we explore the U.S. National Oceanic and Atmo
 
 Firstly, we load the raw data from a comma-separated-value file compressed via the bzip2 algorithm `repdata-data-StormData.csv.bz2` and rename the columns with lowercase for easier manipulation.
 
-```{r load_data, cache=TRUE, message=FALSE}
+
+```r
 library(dplyr)
 col_classes <- c("character", "character", "character", "character", "character")
 names(col_classes) <- c("BGN_DATE", "BGN_TIME", "TIME_ZONE", "END_DATE", "END_TIME")
@@ -29,7 +25,8 @@ colnames(storms) <- tolower(colnames(storms))
 
 Next, we process the data using a `dplyr` library. We add a new column `bgn_year` with a year when a recorded event occurred. We also transform `evtype` to lowercase and filter out the events wich are misclassified or are not necesserily a result of a natural phenomenon (such as *drowning*).
 
-```{r process_data, message=FALSE}
+
+```r
 library(lubridate)
 
 storms <- storms %>% 
@@ -40,13 +37,19 @@ storms <- storms %>%
 
 Quick inspection of the recorded events tells us that despite the fact that the [Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf) defines 48 types of events, there are actually many more than that.
 
-```{r evtypes}
+
+```r
 length(levels(as.factor(storms$evtype)))
+```
+
+```
+## [1] 891
 ```
 
 Therefore, cleaning of event types is necessary.
 
-```{r data_cleaning}
+
+```r
 storms$evtype <- gsub("^avalance", "avalanche", storms$evtype)
 storms$evtype <- gsub("^snow squall.*", "blizzard", storms$evtype)
 storms$evtype <- gsub("^blowing snow$*", "blizzard", storms$evtype)
@@ -231,7 +234,8 @@ storms$evtype <- gsub("^wildfires$", "wildfire", storms$evtype)
 
 Let us consider the questions separately. Firstly, we handle the events from the perspective of fatalities and injuries, i.e., health demages. We filter only events that caused any fatal or non-fatal injuries and combines these two numbers into a new columns `health_dmg`.
 
-```{r health_harmful_events}
+
+```r
 health_harmful_events <- storms %>% 
   mutate(health_dmg = fatalities + injuries) %>%
   filter(health_dmg > 0)
@@ -239,7 +243,8 @@ health_harmful_events <- storms %>%
 
 In order to answer the first question, we aggregate the health harmful events according to the event type and find top 5 event types causing the most of damage to the health of the public comparing the total sum, average and median value.
 
-```{r health_dmg_per_event}
+
+```r
 health_dmg_per_event <- health_harmful_events %>%
   mutate(evtype = as.factor(evtype)) %>%
   group_by(evtype) %>%
@@ -256,26 +261,77 @@ health_dmg_top5_median <- health_dmg_per_event %>% arrange(desc(med_health_dmg))
 
 We can see that there are many outliers in the number of injuries (fatal and non-fatal together) for each event type, i.e., the events usually cause little harm, but there are several occasions when the number goes up significantly.
 
-```{r health_harmful_events_boxplot}
+
+```r
 boxplot(health_harmful_events$health_dmg ~ health_harmful_events$evtype)
 title(main = "Boxplots of health damage for each event type", ylab = "Health damage",
       xlab = "Event type")
 ```
 
+![](pa2_storm_files/figure-html/health_harmful_events_boxplot-1.png) 
+
 Therefore, the total sum of injuries might not be the best measure. Also, the mean will be significantly moved towards extreme values. On the other hand, if we were to consider only the median value, it might highlight events which occurred only few times as can be seen in the following table.
 
-```{r health_dmg_top5_median_xtable, message=FALSE}
-library(xtable)
 
+```r
+library(xtable)
+```
+
+```
+## Warning: package 'xtable' was built under R version 3.1.2
+```
+
+```r
 xtable(as.data.frame(health_dmg_top5_median[, c("evtype", "med_health_dmg")]),
        caption = "Top 5 event types based on the median value of health damage that it causes")
 ```
 
+```
+## % latex table generated in R 3.1.1 by xtable 1.7-4 package
+## % Sun Mar 22 22:41:05 2015
+## \begin{table}[ht]
+## \centering
+## \begin{tabular}{rlr}
+##   \hline
+##  & evtype & med\_health\_dmg \\ 
+##   \hline
+## 1 & tsunami & 81.00 \\ 
+##   2 & dust storm & 6.00 \\ 
+##   3 & dense fog & 4.00 \\ 
+##   4 & drought & 3.00 \\ 
+##   5 & tornado & 3.00 \\ 
+##    \hline
+## \end{tabular}
+## \caption{Top 5 event types based on the median value of health damage that it causes} 
+## \end{table}
+```
+
 We can see that *tsunami* is at the first place, although it occurred only two times, while the *tornado* is fifth, although it occurred more almost 8,000 times. Therefore, we use the total sum of health damage as the sorting criterium.
 
-```{r health_dmg_top5_total_xtable, message=FALSE}
+
+```r
 xtable(as.data.frame(health_dmg_top5_total[, c("evtype", "total_health_dmg")]),
        caption = "Top 5 event types based on the total sum of health damage that it causes")
+```
+
+```
+## % latex table generated in R 3.1.1 by xtable 1.7-4 package
+## % Sun Mar 22 22:41:05 2015
+## \begin{table}[ht]
+## \centering
+## \begin{tabular}{rlr}
+##   \hline
+##  & evtype & total\_health\_dmg \\ 
+##   \hline
+## 1 & tornado & 97023.00 \\ 
+##   2 & thunderstorm wind & 10251.00 \\ 
+##   3 & excessive heat & 8749.00 \\ 
+##   4 & flood & 7421.00 \\ 
+##   5 & lightning & 6049.00 \\ 
+##    \hline
+## \end{tabular}
+## \caption{Top 5 event types based on the total sum of health damage that it causes} 
+## \end{table}
 ```
 
 ##Conclusions
